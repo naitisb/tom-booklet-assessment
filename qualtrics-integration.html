@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ToM Assessment - Qualtrics Version</title>
+    <style>
+        /* Compact styles optimized for Qualtrics embedding */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .tom-container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .tom-illustration {
+            text-align: center;
+            margin: 20px 0;
+            padding: 20px;
+            background: #fafafa;
+            border-radius: 4px;
+        }
+        .tom-illustration img {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: 4px;
+        }
+        .tom-script {
+            font-size: 1.1em;
+            line-height: 1.6;
+            margin: 20px 0;
+            padding: 15px;
+            background: #f9f9f9;
+            border-left: 4px solid #4CAF50;
+        }
+        .tom-question {
+            font-size: 1.15em;
+            font-weight: 600;
+            margin: 20px 0 15px 0;
+            color: #333;
+        }
+        .tom-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .tom-option-btn {
+            padding: 15px 20px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+            text-align: left;
+            transition: all 0.2s;
+        }
+        .tom-option-btn:hover {
+            border-color: #4CAF50;
+            background: #f0f8f0;
+        }
+        .tom-option-btn.selected {
+            border-color: #4CAF50;
+            background: #4CAF50;
+            color: white;
+        }
+        .tom-textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 1em;
+            font-family: Arial, sans-serif;
+        }
+        .tom-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1em;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        .tom-btn:hover {
+            background: #45a049;
+        }
+        .tom-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .tom-progress {
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            margin-bottom: 15px;
+        }
+        .tom-progress-bar {
+            height: 100%;
+            background: #4CAF50;
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
+        .tom-metadata {
+            background: #fff9e6;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+            border: 1px solid #ffd54f;
+        }
+    </style>
+</head>
+<body>
+    <div class="tom-container" id="tomContainer">
+        <!-- Assessment content will be dynamically generated here -->
+    </div>
+
+    <script>
+        // Qualtrics-specific ToM Assessment
+        // This version is designed to work within Qualtrics surveys
+
+        class QualtricsToMAssessment {
+            constructor() {
+                this.currentIndex = 0;
+                this.responses = {};
+                this.startTime = Date.now();
+            }
+
+            // Initialize with Qualtrics embedded data
+            init() {
+                // Get Qualtrics embedded data if available
+                if (typeof Qualtrics !== 'undefined') {
+                    this.participantId = Qualtrics.SurveyEngine.getEmbeddedData('ResponseID') || 'unknown';
+                    this.age = Qualtrics.SurveyEngine.getEmbeddedData('age') || '';
+                    this.booklet = Qualtrics.SurveyEngine.getEmbeddedData('booklet') || 'booklet1';
+                } else {
+                    // Fallback for testing outside Qualtrics
+                    this.participantId = 'test_' + Date.now();
+                    this.age = 8;
+                    this.booklet = 'booklet1';
+                }
+
+                this.loadItems();
+                this.render();
+            }
+
+            loadItems() {
+                // Simplified items for demonstration
+                this.items = [
+                    {
+                        id: 'B1_01',
+                        type: 'Common Desires',
+                        illustration: 'ToM_Booklet_1_illustrations/ToM_Booklet_01.png',
+                        script: 'Here is Sam. Sam is choosing between two books. One book is about bicycles, and the other book is about fire trucks.',
+                        questions: [
+                            {
+                                id: 'pref_01',
+                                text: 'What do you like better- bicycles, or fire trucks?',
+                                type: 'choice',
+                                options: ['Bicycles', 'Fire trucks'],
+                                storeAs: 'childChoice'
+                            },
+                            {
+                                id: 'ToMB1_2AFC_01',
+                                text: 'Sam also likes {childChoice}! Which book will Sam choose?',
+                                type: 'choice',
+                                options: ['Bicycles', 'Fire trucks'],
+                                correctAnswer: '{childChoice}'
+                            }
+                        ]
+                    },
+                    {
+                        id: 'B1_02',
+                        type: 'Diverse Desires',
+                        illustration: 'ToM_Booklet_1_illustrations/ToM_Booklet_02.png',
+                        script: 'Now here is Laura. Laura is going to pick a book off the bookshelf. There is a book that has pictures of fish, and there is a book that has pictures of dinosaurs.',
+                        questions: [
+                            {
+                                id: 'pref_02',
+                                text: 'What do you like better, fish or dinosaurs?',
+                                type: 'choice',
+                                options: ['Fish', 'Dinosaurs'],
+                                storeAs: 'childChoice2'
+                            },
+                            {
+                                id: 'ToMB1_2AFC_02',
+                                text: 'But Laura likes {opposite2} better. Which book will Laura pick?',
+                                type: 'choice',
+                                options: ['Fish', 'Dinosaurs'],
+                                correctAnswer: '{opposite2}'
+                            }
+                        ]
+                    },
+                    {
+                        id: 'B1_04',
+                        type: 'Reference (Easy)',
+                        illustration: 'ToM_Booklet_1_illustrations/ToM_Booklet_04.png',
+                        script: 'Here is Ryan, and Ryan just walked into the room. Here on the bookshelf right in front of Ryan is a big book about airplanes! And there\'s another book about airplanes, over there on the cabinet, behind Ryan\'s back.',
+                        questions: [
+                            {
+                                id: 'ToMB1_2AFC_04',
+                                text: 'Ryan says "I want THAT book about airplanes!" Which book does Ryan want?',
+                                type: 'choice',
+                                options: ['Book in front (on bookshelf)', 'Book behind (on cabinet)'],
+                                correctAnswer: 'Book in front (on bookshelf)'
+                            },
+                            {
+                                id: 'ToMB1_EXPL_05',
+                                text: 'How do you know?',
+                                type: 'text'
+                            }
+                        ]
+                    }
+                ];
+
+                this.currentQuestionIndex = 0;
+                this.totalQuestions = this.items.reduce((sum, item) => sum + item.questions.length, 0);
+            }
+
+            getCurrentItem() {
+                let questionCount = 0;
+                for (let item of this.items) {
+                    if (questionCount + item.questions.length > this.currentQuestionIndex) {
+                        return {
+                            item: item,
+                            questionIndexInItem: this.currentQuestionIndex - questionCount,
+                            question: item.questions[this.currentQuestionIndex - questionCount]
+                        };
+                    }
+                    questionCount += item.questions.length;
+                }
+                return null;
+            }
+
+            render() {
+                const current = this.getCurrentItem();
+
+                if (!current) {
+                    this.complete();
+                    return;
+                }
+
+                const container = document.getElementById('tomContainer');
+                const progress = (this.currentQuestionIndex / this.totalQuestions) * 100;
+
+                let questionText = current.question.text;
+
+                // Replace placeholders with stored values
+                questionText = this.replacePlaceholders(questionText);
+
+                let optionsHTML = '';
+
+                if (current.question.type === 'choice') {
+                    optionsHTML = `
+                        <div class="tom-options">
+                            ${current.question.options.map((opt, idx) => `
+                                <button class="tom-option-btn" onclick="tomAssessment.selectOption('${opt}', ${idx})" id="opt_${idx}">
+                                    ${opt}
+                                </button>
+                            `).join('')}
+                        </div>
+                        <button class="tom-btn" id="confirmBtn" onclick="tomAssessment.confirmChoice()" disabled>Confirm</button>
+                    `;
+                } else if (current.question.type === 'text') {
+                    optionsHTML = `
+                        <textarea class="tom-textarea" id="textResponse" placeholder="Enter participant's response..."></textarea>
+                        <br>
+                        <button class="tom-btn" onclick="tomAssessment.saveText()">Save & Continue</button>
+                    `;
+                }
+
+                container.innerHTML = `
+                    <div class="tom-progress">
+                        <div class="tom-progress-bar" style="width: ${progress}%"></div>
+                    </div>
+                    <div style="text-align: center; color: #666; margin-bottom: 20px;">
+                        Question ${this.currentQuestionIndex + 1} of ${this.totalQuestions}
+                    </div>
+                    <div class="tom-metadata">
+                        <strong>Item:</strong> ${current.item.type} | <strong>ID:</strong> ${current.question.id}
+                    </div>
+                    <div class="tom-illustration">
+                        <img src="${current.item.illustration}" alt="Illustration" style="display: none;"
+                             onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'padding:40px; border:2px dashed #ccc; color:#999;\'>Illustration: ${current.item.illustration.split('/').pop()}</div>';"
+                             onload="this.style.display='block';">
+                    </div>
+                    ${current.questionIndexInItem === 0 ? `<div class="tom-script">${current.item.script}</div>` : ''}
+                    <div class="tom-question">${questionText}</div>
+                    ${optionsHTML}
+                    ${this.currentQuestionIndex > 0 ? '<button class="tom-btn" style="background: #757575;" onclick="tomAssessment.previous()">Previous</button>' : ''}
+                `;
+            }
+
+            replacePlaceholders(text) {
+                let result = text;
+
+                // Replace {childChoice}
+                if (this.responses['pref_01']) {
+                    result = result.replace('{childChoice}', this.responses['pref_01']);
+                }
+
+                // Replace {childChoice2}
+                if (this.responses['pref_02']) {
+                    result = result.replace('{childChoice2}', this.responses['pref_02']);
+                }
+
+                // Replace {opposite2}
+                if (this.responses['pref_02']) {
+                    const opposite = this.responses['pref_02'] === 'Fish' ? 'Dinosaurs' : 'Fish';
+                    result = result.replace('{opposite2}', opposite);
+                }
+
+                return result;
+            }
+
+            selectOption(option, index) {
+                document.querySelectorAll('.tom-option-btn').forEach(btn => btn.classList.remove('selected'));
+                document.getElementById('opt_' + index).classList.add('selected');
+                this.selectedOption = option;
+                document.getElementById('confirmBtn').disabled = false;
+            }
+
+            confirmChoice() {
+                const current = this.getCurrentItem();
+
+                // Store response
+                this.responses[current.question.id] = this.selectedOption;
+
+                // Store for branching if needed
+                if (current.question.storeAs) {
+                    this.responses[current.question.storeAs] = this.selectedOption;
+                }
+
+                // Save to Qualtrics embedded data
+                this.saveToQualtrics(current.question.id, this.selectedOption);
+
+                this.currentQuestionIndex++;
+                this.selectedOption = null;
+                this.render();
+            }
+
+            saveText() {
+                const text = document.getElementById('textResponse').value.trim();
+                if (!text) {
+                    alert('Please enter a response.');
+                    return;
+                }
+
+                const current = this.getCurrentItem();
+                this.responses[current.question.id] = text;
+
+                // Save to Qualtrics embedded data
+                this.saveToQualtrics(current.question.id, text);
+
+                this.currentQuestionIndex++;
+                this.render();
+            }
+
+            previous() {
+                if (this.currentQuestionIndex > 0) {
+                    this.currentQuestionIndex--;
+                    this.render();
+                }
+            }
+
+            saveToQualtrics(questionId, response) {
+                if (typeof Qualtrics !== 'undefined') {
+                    Qualtrics.SurveyEngine.setEmbeddedData(questionId, response);
+                    Qualtrics.SurveyEngine.setEmbeddedData(questionId + '_time', Date.now() - this.startTime);
+                }
+            }
+
+            complete() {
+                const duration = (Date.now() - this.startTime) / 1000;
+
+                document.getElementById('tomContainer').innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <h2 style="color: #4CAF50;">Assessment Complete!</h2>
+                        <p style="font-size: 1.1em;">Thank you for completing the Theory of Mind assessment.</p>
+                        <p>Total time: ${Math.round(duration)} seconds</p>
+                        <button class="tom-btn" onclick="tomAssessment.exportData()">Download Data</button>
+                        ${typeof Qualtrics !== 'undefined' ? '<button class="tom-btn" onclick="tomAssessment.continueToQualtrics()">Continue Survey</button>' : ''}
+                    </div>
+                `;
+
+                // Save completion data to Qualtrics
+                if (typeof Qualtrics !== 'undefined') {
+                    Qualtrics.SurveyEngine.setEmbeddedData('tom_complete', 'true');
+                    Qualtrics.SurveyEngine.setEmbeddedData('tom_duration', Math.round(duration));
+                    Qualtrics.SurveyEngine.setEmbeddedData('tom_total_responses', Object.keys(this.responses).length);
+                }
+            }
+
+            exportData() {
+                const data = {
+                    participantId: this.participantId,
+                    age: this.age,
+                    booklet: this.booklet,
+                    responses: this.responses,
+                    duration: (Date.now() - this.startTime) / 1000
+                };
+
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `ToM_${this.participantId}_${Date.now()}.json`;
+                a.click();
+            }
+
+            continueToQualtrics() {
+                if (typeof Qualtrics !== 'undefined') {
+                    Qualtrics.SurveyEngine.clickNextButton();
+                }
+            }
+        }
+
+        // Initialize assessment
+        let tomAssessment = new QualtricsToMAssessment();
+        window.addEventListener('DOMContentLoaded', () => {
+            tomAssessment.init();
+        });
+    </script>
+</body>
+</html>

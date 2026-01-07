@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Theory of Mind (ToM) Booklet Assessment</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .setup-screen, .assessment-screen, .completion-screen {
+            display: none;
+        }
+
+        .setup-screen.active, .assessment-screen.active, .completion-screen.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 1.1em;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            font-weight: 600;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            margin-left: 10px;
+        }
+
+        .illustration-container {
+            text-align: center;
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+        }
+
+        .illustration-container img {
+            max-width: 100%;
+            max-height: 500px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .illustration-placeholder {
+            padding: 100px;
+            background: #e9ecef;
+            border: 3px dashed #adb5bd;
+            border-radius: 8px;
+            color: #6c757d;
+            font-size: 1.2em;
+        }
+
+        .question-container {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 12px;
+            margin: 20px 0;
+            border-left: 5px solid #667eea;
+        }
+
+        .question-text {
+            font-size: 1.3em;
+            color: #333;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .script-text {
+            font-size: 1.2em;
+            color: #495057;
+            line-height: 1.8;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+        }
+
+        .response-options {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .response-btn {
+            background: white;
+            border: 2px solid #dee2e6;
+            padding: 20px;
+            font-size: 1.1em;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: left;
+        }
+
+        .response-btn:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+            transform: translateX(5px);
+        }
+
+        .response-btn.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .text-response {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 1.1em;
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .text-response:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s;
+        }
+
+        .progress-text {
+            text-align: center;
+            color: #6c757d;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+        }
+
+        .navigation-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+        }
+
+        .item-metadata {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.95em;
+        }
+
+        .completion-screen {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .completion-screen h2 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 20px;
+        }
+
+        .completion-screen p {
+            font-size: 1.2em;
+            color: #495057;
+            margin-bottom: 30px;
+        }
+
+        .results-summary {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 12px;
+            margin: 30px 0;
+            text-align: left;
+        }
+
+        .results-summary h3 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .results-item {
+            padding: 10px 0;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .results-item:last-child {
+            border-bottom: none;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+
+        .alert-warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            color: #856404;
+        }
+
+        @media (max-width: 768px) {
+            .content {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .navigation-buttons {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .btn-secondary {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Theory of Mind Assessment</h1>
+            <p>Interactive Digital Booklet Task</p>
+        </div>
+
+        <div class="content">
+            <!-- Setup Screen -->
+            <div class="setup-screen active">
+                <h2 style="color: #667eea; margin-bottom: 30px;">Assessment Setup</h2>
+
+                <div class="alert alert-info">
+                    <strong>Note:</strong> This assessment measures Theory of Mind reasoning through storytelling and questions. Please ensure you have a quiet environment and approximately 30-45 minutes for completion.
+                </div>
+
+                <div class="form-group">
+                    <label for="participantId">Participant ID:</label>
+                    <input type="text" id="participantId" placeholder="Enter participant identifier" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="participantAge">Participant Age:</label>
+                    <input type="number" id="participantAge" min="3" max="18" placeholder="Age in years" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="participantGrade">Grade Level:</label>
+                    <select id="participantGrade">
+                        <option value="">Select grade</option>
+                        <option value="preschool">Preschool</option>
+                        <option value="k">Kindergarten</option>
+                        <option value="1">1st Grade</option>
+                        <option value="2">2nd Grade</option>
+                        <option value="3">3rd Grade</option>
+                        <option value="4">4th Grade</option>
+                        <option value="5">5th Grade</option>
+                        <option value="6">6th Grade</option>
+                        <option value="7">7th Grade</option>
+                        <option value="8">8th Grade</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="bookletSelect">Select Booklet:</label>
+                    <select id="bookletSelect" required>
+                        <option value="">Choose a booklet</option>
+                        <option value="booklet1">Booklet 1 (Ages 5-10, 41 items)</option>
+                        <option value="booklet2">Booklet 2 (Ages 5-12, 70 items)</option>
+                        <option value="booklet2_young">Booklet 2 Modified (Ages 3-4, reduced items)</option>
+                    </select>
+                </div>
+
+                <div class="alert alert-warning">
+                    <strong>Recommendation:</strong> Booklet 1 is designed for ages 5-10. Booklet 2 is designed for ages 5-12 (with a modified version for ages 3-4).
+                </div>
+
+                <div class="form-group">
+                    <label for="examinerName">Examiner Name:</label>
+                    <input type="text" id="examinerName" placeholder="Your name">
+                </div>
+
+                <button class="btn" onclick="startAssessment()">Begin Assessment</button>
+            </div>
+
+            <!-- Assessment Screen -->
+            <div class="assessment-screen">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText"></div>
+
+                <div class="illustration-container" id="illustrationContainer">
+                    <div class="illustration-placeholder">
+                        Illustration would appear here<br>
+                        <small style="font-size: 0.8em;">(Upload images to ToM_Booklet_1_illustrations or ToM_Booklet_2_illustrations folders)</small>
+                    </div>
+                </div>
+
+                <div class="item-metadata" id="itemMetadata"></div>
+
+                <div class="script-text" id="scriptText"></div>
+
+                <div class="question-container" id="questionContainer">
+                    <div class="question-text" id="questionText"></div>
+                    <div id="responseArea"></div>
+                </div>
+
+                <div class="navigation-buttons">
+                    <button class="btn btn-secondary" onclick="previousItem()" id="prevBtn">Previous</button>
+                    <button class="btn" onclick="nextItem()" id="nextBtn">Next</button>
+                </div>
+            </div>
+
+            <!-- Completion Screen -->
+            <div class="completion-screen">
+                <h2>Assessment Complete!</h2>
+                <p>Thank you for completing the Theory of Mind assessment.</p>
+
+                <div class="results-summary" id="resultsSummary"></div>
+
+                <button class="btn" onclick="downloadResults()">Download Results (JSON)</button>
+                <button class="btn btn-secondary" onclick="downloadCSV()">Download Results (CSV)</button>
+                <button class="btn btn-secondary" onclick="resetAssessment()" style="margin-top: 20px;">Start New Assessment</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="tom-booklet-data.js"></script>
+    <script src="tom-booklet-app.js"></script>
+</body>
+</html>
