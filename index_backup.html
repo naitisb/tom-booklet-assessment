@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Theory of Mind (ToM) Booklet Assessment - Enhanced</title>
+    <title>Theory of Mind (ToM) Booklet Assessment</title>
     <style>
         * {
             margin: 0;
@@ -82,115 +82,6 @@
             border-color: #667eea;
         }
 
-        /* Language and Audio Controls */
-        .settings-section {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 30px;
-            border: 2px solid #e0e0e0;
-        }
-
-        .settings-section h3 {
-            color: #667eea;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .checkbox-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin: 15px 0;
-        }
-
-        .checkbox-group input[type="checkbox"] {
-            width: 24px;
-            height: 24px;
-            cursor: pointer;
-        }
-
-        .checkbox-group label {
-            margin: 0;
-            cursor: pointer;
-        }
-
-        /* Audio Controls */
-        .audio-controls {
-            background: #fff;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 20px 0;
-            display: none;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-
-        .audio-controls.active {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-
-        .audio-btn {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.95em;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: background 0.2s;
-        }
-
-        .audio-btn:hover {
-            background: #5568d3;
-        }
-
-        .audio-btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-
-        .audio-btn.playing {
-            background: #f44336;
-        }
-
-        /* Text Highlighting */
-        .word {
-            display: inline;
-            transition: all 0.2s;
-        }
-
-        .word-highlighted {
-            background: #ffeb3b;
-            color: #000;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-weight: 600;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-
-        .script-text {
-            font-size: 1.2em;
-            color: #495057;
-            line-height: 1.8;
-            margin-bottom: 20px;
-            padding: 20px;
-            background: white;
-            border-radius: 8px;
-        }
-
-        .script-text.audio-enabled {
-            background: #f0f8ff;
-            border: 2px solid #667eea;
-        }
-
         .btn {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -210,12 +101,6 @@
 
         .btn:active {
             transform: translateY(0);
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
         }
 
         .btn-secondary {
@@ -260,6 +145,16 @@
             color: #333;
             margin-bottom: 20px;
             line-height: 1.6;
+        }
+
+        .script-text {
+            font-size: 1.2em;
+            color: #495057;
+            line-height: 1.8;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
         }
 
         .response-options {
@@ -399,18 +294,6 @@
             color: #856404;
         }
 
-        .alert-success {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
-        }
-
-        /* Icons using Unicode */
-        .icon {
-            display: inline-block;
-            margin-right: 5px;
-        }
-
         @media (max-width: 768px) {
             .content {
                 padding: 20px;
@@ -428,11 +311,6 @@
             .btn-secondary {
                 margin-left: 0;
             }
-
-            .audio-controls.active {
-                flex-direction: column;
-                align-items: stretch;
-            }
         }
     </style>
 </head>
@@ -440,7 +318,7 @@
     <div class="container">
         <div class="header">
             <h1>Theory of Mind Assessment</h1>
-            <p>Interactive Digital Booklet Task - Enhanced Edition</p>
+            <p>Interactive Digital Booklet Task</p>
         </div>
 
         <div class="content">
@@ -450,30 +328,6 @@
 
                 <div class="alert alert-info">
                     <strong>Note:</strong> This assessment measures Theory of Mind reasoning through storytelling and questions. Please ensure you have a quiet environment and approximately 30-45 minutes for completion.
-                </div>
-
-                <!-- Language and Audio Settings -->
-                <div class="settings-section">
-                    <h3><span class="icon">🌍</span>Language & Audio Settings</h3>
-
-                    <div class="form-group">
-                        <label for="languageSelect">Language Variant:</label>
-                        <select id="languageSelect" onchange="updateLanguage()">
-                            <option value="en-US">American English</option>
-                            <option value="en-GB">British English</option>
-                        </select>
-                    </div>
-
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="audioEnabled" onchange="toggleAudio()">
-                        <label for="audioEnabled">
-                            <strong>Enable Audio Narration</strong> (Text-to-speech with word highlighting)
-                        </label>
-                    </div>
-
-                    <div class="alert alert-success" id="audioInfo" style="display: none; margin-top: 15px;">
-                        <span class="icon">🔊</span> <strong>Audio enabled!</strong> The script will be read aloud automatically, and words will be highlighted as they are spoken.
-                    </div>
                 </div>
 
                 <div class="form-group">
@@ -487,9 +341,19 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="participantGrade" id="gradeLabel">Grade Level:</label>
+                    <label for="participantGrade">Grade Level:</label>
                     <select id="participantGrade">
-                        <!-- Options populated dynamically based on language -->
+                        <option value="">Select grade</option>
+                        <option value="preschool">Preschool</option>
+                        <option value="k">Kindergarten</option>
+                        <option value="1">1st Grade</option>
+                        <option value="2">2nd Grade</option>
+                        <option value="3">3rd Grade</option>
+                        <option value="4">4th Grade</option>
+                        <option value="5">5th Grade</option>
+                        <option value="6">6th Grade</option>
+                        <option value="7">7th Grade</option>
+                        <option value="8">8th Grade</option>
                     </select>
                 </div>
 
@@ -522,22 +386,6 @@
                 </div>
                 <div class="progress-text" id="progressText"></div>
 
-                <!-- Audio Controls -->
-                <div class="audio-controls" id="audioControls">
-                    <button class="audio-btn" id="playPauseBtn" onclick="togglePlayPause()">
-                        <span class="icon">▶️</span> <span id="playPauseText">Play Audio</span>
-                    </button>
-                    <button class="audio-btn" onclick="stopAudio()">
-                        <span class="icon">⏹️</span> Stop
-                    </button>
-                    <button class="audio-btn" onclick="replayAudio()">
-                        <span class="icon">🔄</span> Replay
-                    </button>
-                    <div style="flex-grow: 1; text-align: right; color: #6c757d;">
-                        <small id="audioStatus">Ready</small>
-                    </div>
-                </div>
-
                 <div class="illustration-container" id="illustrationContainer">
                     <div class="illustration-placeholder">
                         Illustration would appear here<br>
@@ -569,14 +417,12 @@
 
                 <button class="btn" onclick="downloadResults()">Download Results (JSON)</button>
                 <button class="btn btn-secondary" onclick="downloadCSV()">Download Results (CSV)</button>
-                <button class="btn btn-secondary" onclick="downloadAudioFiles()">Download Audio Recordings</button>
                 <button class="btn btn-secondary" onclick="resetAssessment()" style="margin-top: 20px;">Start New Assessment</button>
             </div>
         </div>
     </div>
 
-    <script src="tom-booklet-language.js"></script>
     <script src="tom-booklet-data.js"></script>
-    <script src="tom-booklet-app-enhanced.js"></script>
+    <script src="tom-booklet-app.js"></script>
 </body>
 </html>

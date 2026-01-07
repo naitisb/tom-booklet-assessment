@@ -1,15 +1,102 @@
-// ToM Booklet Assessment Application Logic
-// Handles assessment flow, branching logic, data collection, and export
+// Enhanced ToM Booklet Assessment Application with Audio & Language Support
+// Extends original functionality with text-to-speech, word highlighting, and British English
 
-class ToMAssessment {
+// Voice Recognition Support
+class VoiceRecognition {
+    constructor() {
+        this.recognition = null;
+        this.isListening = false;
+        this.transcript = '';
+
+        // Check for Web Speech API support
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            this.recognition = new SpeechRecognition();
+            this.recognition.continuous = false;
+            this.recognition.interimResults = true;
+            this.recognition.maxAlternatives = 1;
+        }
+    }
+
+    isSupported() {
+        return this.recognition !== null;
+    }
+
+    setLanguage(languageCode) {
+        if (this.recognition) {
+            this.recognition.lang = languageCode;
+        }
+    }
+
+    async startListening() {
+        if (!this.recognition) {
+            throw new Error('Speech recognition not supported');
+        }
+
+        return new Promise((resolve, reject) => {
+            this.transcript = '';
+            this.isListening = true;
+
+            this.recognition.onresult = (event) => {
+                let interimTranscript = '';
+                let finalTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalTranscript += transcript;
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+
+                this.transcript = finalTranscript || interimTranscript;
+            };
+
+            this.recognition.onend = () => {
+                this.isListening = false;
+                resolve(this.transcript);
+            };
+
+            this.recognition.onerror = (event) => {
+                this.isListening = false;
+                reject(event.error);
+            };
+
+            this.recognition.start();
+        });
+    }
+
+    stopListening() {
+        if (this.recognition && this.isListening) {
+            this.recognition.stop();
+        }
+    }
+
+    getTranscript() {
+        return this.transcript;
+    }
+}
+
+// Global voice recognition instance
+const voiceRecognition = new VoiceRecognition();
+
+// Enhanced Assessment Class
+class EnhancedToMAssessment {
     constructor() {
         this.participantData = {};
         this.currentBooklet = null;
         this.currentItemIndex = 0;
         this.responses = [];
+        this.freeResponseStorage = {}; // Store free responses for substitution
         this.startTime = null;
         this.itemStartTime = null;
         this.sessionData = {};
+        this.currentHighlighter = null;
+        this.audioRecordings = {}; // Store audio recordings by question ID
+        this.mediaRecorder = null;
+        this.audioChunks = [];
+        this.isRecording = false;
     }
 
     initialize(participantData, bookletType) {
@@ -18,6 +105,7 @@ class ToMAssessment {
         this.startTime = new Date().toISOString();
         this.currentItemIndex = 0;
         this.responses = [];
+        this.freeResponseStorage = {};
 
         // Load appropriate booklet data
         this.items = this.loadBookletItems(bookletType);
@@ -38,15 +126,19 @@ class ToMAssessment {
             age: participantData.age,
             grade: participantData.grade,
             booklet: bookletType,
+            language: languageManager.getLanguage(),
+            audioEnabled: audioManager.isEnabled(),
             examiner: participantData.examiner,
             startTime: this.startTime,
             responses: []
         };
+
+        // Set voice recognition language
+        voiceRecognition.setLanguage(languageManager.getLanguage());
     }
 
     loadBookletItems(bookletType) {
         if (bookletType === 'booklet1') {
-            // Combine Story 1 and Story 2 items
             return [...BOOKLET_1_DATA.story1.items];
         } else if (bookletType === 'booklet2' || bookletType === 'booklet2_young') {
             return BOOKLET_2_DATA.items;
@@ -61,7 +153,7 @@ class ToMAssessment {
         return this.items[this.currentItemIndex];
     }
 
-    renderCurrentItem() {
+    async renderCurrentItem() {
         const item = this.getCurrentItem();
 
         if (!item) {
@@ -70,6 +162,9 @@ class ToMAssessment {
         }
 
         this.itemStartTime = new Date();
+
+        // Stop any playing audio
+        audioManager.stop();
 
         // Update progress
         this.updateProgress();
@@ -80,8 +175,8 @@ class ToMAssessment {
         // Render metadata
         this.renderMetadata(item);
 
-        // Render script
-        this.renderScript(item.script);
+        // Render script with translation
+        await this.renderScript(item.script);
 
         // Render questions
         this.renderQuestions(item);
@@ -93,7 +188,6 @@ class ToMAssessment {
     renderIllustration(illustrationPath) {
         const container = document.getElementById('illustrationContainer');
 
-        // Try to load the actual image
         const img = new Image();
         img.onload = function() {
             container.innerHTML = `<img src="${illustrationPath}" alt="Story illustration">`;
@@ -119,14 +213,61 @@ class ToMAssessment {
         `;
     }
 
-    renderScript(scriptText) {
+    async renderScript(scriptText) {
         const scriptElement = document.getElementById('scriptText');
 
-        // Replace placeholders with actual values
-        let processedScript = scriptText;
+        // Translate script
+        let processedScript = languageManager.translate(scriptText);
+
+        // Replace placeholders with stored free responses
+        processedScript = this.replaceResponsePlaceholders(processedScript);
+
+        // Replace grade placeholder
         processedScript = processedScript.replace('{grade}', this.participantData.grade || 'X');
 
-        scriptElement.innerHTML = processedScript;
+        // If audio is enabled, prepare for highlighting
+        if (audioManager.isEnabled()) {
+            scriptElement.classList.add('audio-enabled');
+
+            // Create highlighter
+            this.currentHighlighter = new TextHighlighter(scriptElement);
+            this.currentHighlighter.prepareText(processedScript);
+
+            // Set up audio callback
+            audioManager.setHighlightCallback((wordIndex) => {
+                this.currentHighlighter.highlightWord(wordIndex);
+            });
+
+            // Auto-play script
+            document.getElementById('audioStatus').textContent = 'Playing...';
+            document.getElementById('playPauseBtn').classList.add('playing');
+            document.getElementById('playPauseText').textContent = 'Pause';
+
+            try {
+                await audioManager.speak(processedScript);
+                document.getElementById('audioStatus').textContent = 'Complete';
+                document.getElementById('playPauseBtn').classList.remove('playing');
+                document.getElementById('playPauseText').textContent = 'Replay';
+            } catch (error) {
+                console.error('Audio playback error:', error);
+                document.getElementById('audioStatus').textContent = 'Error';
+            }
+        } else {
+            scriptElement.classList.remove('audio-enabled');
+            scriptElement.innerHTML = processedScript;
+        }
+    }
+
+    replaceResponsePlaceholders(text) {
+        let result = text;
+
+        // Replace {childChoice} patterns
+        for (const [key, value] of Object.entries(this.freeResponseStorage)) {
+            const regex = new RegExp(`\\{${key}\\}`, 'g');
+            result = result.replace(regex, value);
+        }
+
+        return result;
     }
 
     renderQuestions(item) {
@@ -134,13 +275,12 @@ class ToMAssessment {
         const questionText = document.getElementById('questionText');
         const responseArea = document.getElementById('responseArea');
 
-        // Get current question index for this item
         const currentQuestionIndex = this.getCurrentQuestionIndex(item);
 
         if (currentQuestionIndex >= item.questions.length) {
-            // All questions answered, show follow-up if exists
             if (item.followUp) {
-                questionText.innerHTML = item.followUp;
+                const translatedFollowUp = languageManager.translate(item.followUp);
+                questionText.innerHTML = translatedFollowUp;
                 responseArea.innerHTML = `
                     <p style="color: #6c757d; font-style: italic;">Read the follow-up text above, then proceed to the next item.</p>
                 `;
@@ -150,25 +290,30 @@ class ToMAssessment {
 
         const question = item.questions[currentQuestionIndex];
 
-        // Process question text with branching logic
-        let processedQuestionText = this.processQuestionText(question.text, item);
+        // Translate and process question text
+        let processedQuestionText = languageManager.translate(question.text);
+        processedQuestionText = this.replaceResponsePlaceholders(processedQuestionText);
+        processedQuestionText = this.processQuestionText(processedQuestionText, item);
         questionText.innerHTML = processedQuestionText;
 
-        // Render response options based on question type
+        // Render response options
         responseArea.innerHTML = '';
 
         switch (question.type) {
             case '2AFC':
             case 'preference':
             case 'implicit_action':
-                this.renderMultipleChoice(question, responseArea);
+                if (question.type === 'preference') {
+                    this.renderFreeResponse(question, responseArea, item);
+                } else {
+                    this.renderMultipleChoice(question, responseArea);
+                }
                 break;
 
             case 'explanation':
             case '2AFC_explanation':
                 this.renderTextResponse(question, responseArea);
                 if (question.type === '2AFC_explanation') {
-                    // First show 2AFC, then explanation
                     this.renderMultipleChoice(question, responseArea);
                 }
                 break;
@@ -182,6 +327,244 @@ class ToMAssessment {
         }
     }
 
+    renderFreeResponse(question, container, item) {
+        const div = document.createElement('div');
+        div.innerHTML = `
+            <p style="margin-bottom: 15px; color: #666;">
+                <strong>This is a free response question.</strong> The participant can answer in their own words.
+            </p>
+        `;
+
+        // Multiple choice buttons (required for all free response questions)
+        if (question.options && question.options.length > 0) {
+            const choiceDiv = document.createElement('div');
+            choiceDiv.innerHTML = '<p style="margin: 15px 0 10px 0; color: #333;"><strong>Select an answer:</strong></p>';
+            const btnContainer = document.createElement('div');
+            btnContainer.style.display = 'flex';
+            btnContainer.style.gap = '10px';
+            btnContainer.style.flexWrap = 'wrap';
+            btnContainer.style.marginBottom = '15px';
+
+            // Add all options as buttons
+            question.options.forEach(option => {
+                const btn = document.createElement('button');
+                btn.className = 'response-btn';
+                btn.textContent = option;
+                btn.style.padding = '12px 24px';
+                btn.dataset.value = option;
+                btn.onclick = () => {
+                    // Deselect all other buttons
+                    btnContainer.querySelectorAll('.response-btn').forEach(b => {
+                        b.classList.remove('selected');
+                        b.style.background = '';
+                    });
+                    // Select this button
+                    btn.classList.add('selected');
+                    btn.style.background = '#4CAF50';
+                    btn.style.color = 'white';
+
+                    // Auto-fill textarea
+                    const textarea = document.getElementById('freeResponseInput');
+                    textarea.value = option;
+                    textarea.style.display = 'block';
+                };
+                btnContainer.appendChild(btn);
+            });
+
+            // Add "Other" option
+            const otherBtn = document.createElement('button');
+            otherBtn.className = 'response-btn';
+            otherBtn.textContent = 'Other';
+            otherBtn.style.padding = '12px 24px';
+            otherBtn.dataset.value = 'other';
+            otherBtn.onclick = () => {
+                // Deselect all other buttons
+                btnContainer.querySelectorAll('.response-btn').forEach(b => {
+                    b.classList.remove('selected');
+                    b.style.background = '';
+                });
+                // Select "Other"
+                otherBtn.classList.add('selected');
+                otherBtn.style.background = '#4CAF50';
+                otherBtn.style.color = 'white';
+
+                // Show and focus textarea for custom input
+                const textarea = document.getElementById('freeResponseInput');
+                textarea.value = '';
+                textarea.style.display = 'block';
+                textarea.focus();
+            };
+            btnContainer.appendChild(otherBtn);
+
+            choiceDiv.appendChild(btnContainer);
+            div.appendChild(choiceDiv);
+        }
+
+        // Create input area (initially hidden if options exist)
+        const inputDiv = document.createElement('div');
+        inputDiv.style.marginBottom = '15px';
+
+        const textarea = document.createElement('textarea');
+        textarea.className = 'text-response';
+        textarea.id = 'freeResponseInput';
+        textarea.placeholder = "Type or dictate the participant's response...";
+        if (question.options && question.options.length > 0) {
+            textarea.style.display = 'none'; // Hidden until option selected
+        }
+        inputDiv.appendChild(textarea);
+
+        // Voice input button if supported
+        if (voiceRecognition.isSupported()) {
+            const voiceBtn = document.createElement('button');
+            voiceBtn.className = 'audio-btn';
+            voiceBtn.style.marginTop = '10px';
+            voiceBtn.innerHTML = '<span class="icon">🎤</span> <span id="voiceButtonText">Start Voice Input (Speech-to-Text)</span>';
+            voiceBtn.id = 'voiceInputBtn';
+            voiceBtn.onclick = () => this.toggleVoiceInput(textarea, voiceBtn);
+            inputDiv.appendChild(voiceBtn);
+        }
+
+        // Audio recording button (records actual audio file)
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            const recordBtn = document.createElement('button');
+            recordBtn.className = 'audio-btn';
+            recordBtn.style.marginTop = '10px';
+            recordBtn.style.marginLeft = '10px';
+            recordBtn.innerHTML = '<span class="icon">⏺️</span> <span id="recordButtonText">Record Audio Response</span>';
+            recordBtn.id = 'audioRecordBtn';
+            recordBtn.onclick = () => this.toggleAudioRecording(recordBtn, question.id);
+            inputDiv.appendChild(recordBtn);
+        }
+
+        div.appendChild(inputDiv);
+
+        // Confirm button
+        const confirmBtn = document.createElement('button');
+        confirmBtn.className = 'btn';
+        confirmBtn.style.marginTop = '20px';
+        confirmBtn.textContent = 'Save Response & Continue';
+        confirmBtn.onclick = () => {
+            const response = textarea.value.trim();
+            if (response) {
+                // Store for placeholder replacement
+                if (question.storeAs) {
+                    this.freeResponseStorage[question.storeAs] = response;
+
+                    // Also store opposite if it's a two-option question
+                    if (question.options && question.options.length === 2) {
+                        const opposite = question.options.find(opt =>
+                            opt.toLowerCase() !== response.toLowerCase()
+                        );
+                        if (opposite) {
+                            this.freeResponseStorage[question.storeAs + '_opposite'] = opposite;
+                        }
+                    }
+                }
+
+                this.recordResponse(question.id, response, 'free_response');
+                this.moveToNextQuestion();
+            } else {
+                alert('Please enter a response before continuing.');
+            }
+        };
+        div.appendChild(confirmBtn);
+
+        container.appendChild(div);
+    }
+
+    async toggleVoiceInput(textarea, button) {
+        if (voiceRecognition.isListening) {
+            voiceRecognition.stopListening();
+            button.innerHTML = '<span class="icon">🎤</span> Start Voice Input (Speech-to-Text)';
+            return;
+        }
+
+        button.innerHTML = '<span class="icon">🔴</span> Listening...';
+        button.disabled = true;
+
+        try {
+            const transcript = await voiceRecognition.startListening();
+            if (transcript) {
+                textarea.value = transcript;
+                textarea.style.display = 'block';
+            }
+        } catch (error) {
+            console.error('Voice recognition error:', error);
+            alert('Voice recognition error: ' + error);
+        } finally {
+            button.innerHTML = '<span class="icon">🎤</span> Start Voice Input (Speech-to-Text)';
+            button.disabled = false;
+        }
+    }
+
+    async toggleAudioRecording(button, questionId) {
+        if (this.isRecording) {
+            // Stop recording
+            this.stopAudioRecording(button);
+        } else {
+            // Start recording
+            await this.startAudioRecording(button, questionId);
+        }
+    }
+
+    async startAudioRecording(button, questionId) {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+            this.audioChunks = [];
+            this.mediaRecorder = new MediaRecorder(stream);
+
+            this.mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    this.audioChunks.push(event.data);
+                }
+            };
+
+            this.mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+
+                // Store audio recording
+                this.audioRecordings[questionId] = {
+                    blob: audioBlob,
+                    timestamp: new Date().toISOString(),
+                    duration: (Date.now() - this.recordingStartTime) / 1000
+                };
+
+                // Stop all tracks
+                stream.getTracks().forEach(track => track.stop());
+
+                // Show success message
+                const statusMsg = document.createElement('div');
+                statusMsg.style.cssText = 'margin-top: 10px; padding: 10px; background: #4CAF50; color: white; border-radius: 5px;';
+                statusMsg.textContent = `✓ Audio recorded (${Math.round(this.audioRecordings[questionId].duration)}s)`;
+                button.parentElement.appendChild(statusMsg);
+
+                setTimeout(() => statusMsg.remove(), 3000);
+            };
+
+            this.recordingStartTime = Date.now();
+            this.mediaRecorder.start();
+            this.isRecording = true;
+
+            button.innerHTML = '<span class="icon">⏹️</span> <span id="recordButtonText">Stop Recording</span>';
+            button.style.background = '#f44336';
+
+        } catch (error) {
+            console.error('Audio recording error:', error);
+            alert('Could not access microphone: ' + error.message);
+        }
+    }
+
+    stopAudioRecording(button) {
+        if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+            this.mediaRecorder.stop();
+            this.isRecording = false;
+
+            button.innerHTML = '<span class="icon">⏺️</span> <span id="recordButtonText">Record Audio Response</span>';
+            button.style.background = '';
+        }
+    }
+
     renderMultipleChoice(question, container) {
         const div = document.createElement('div');
         div.className = 'response-options';
@@ -189,14 +572,13 @@ class ToMAssessment {
         question.options.forEach((option, index) => {
             const button = document.createElement('button');
             button.className = 'response-btn';
-            button.textContent = option;
+            button.textContent = languageManager.translate(option);
             button.onclick = () => this.selectResponse(question.id, option, button);
             div.appendChild(button);
         });
 
         container.appendChild(div);
 
-        // Add confirm button
         const confirmBtn = document.createElement('button');
         confirmBtn.className = 'btn';
         confirmBtn.style.marginTop = '20px';
@@ -208,14 +590,24 @@ class ToMAssessment {
     }
 
     renderTextResponse(question, container) {
+        const div = document.createElement('div');
+
         const textarea = document.createElement('textarea');
         textarea.className = 'text-response';
         textarea.placeholder = "Type the participant's verbal response here...";
         textarea.id = `response_${question.id}`;
+        div.appendChild(textarea);
 
-        container.appendChild(textarea);
+        // Voice input button if supported
+        if (voiceRecognition.isSupported()) {
+            const voiceBtn = document.createElement('button');
+            voiceBtn.className = 'audio-btn';
+            voiceBtn.style.marginTop = '10px';
+            voiceBtn.innerHTML = '<span class="icon">🎤</span> <span>Start Voice Input</span>';
+            voiceBtn.onclick = () => this.toggleVoiceInput(textarea, voiceBtn);
+            div.appendChild(voiceBtn);
+        }
 
-        // Add confirm button
         const confirmBtn = document.createElement('button');
         confirmBtn.className = 'btn';
         confirmBtn.style.marginTop = '20px';
@@ -229,22 +621,19 @@ class ToMAssessment {
                 alert('Please enter a response before continuing.');
             }
         };
-        container.appendChild(confirmBtn);
+        div.appendChild(confirmBtn);
+
+        container.appendChild(div);
     }
 
     selectResponse(questionId, response, button) {
-        // Remove previous selection
         document.querySelectorAll('.response-btn').forEach(btn => {
             btn.classList.remove('selected');
         });
 
-        // Mark this as selected
         button.classList.add('selected');
-
-        // Store temporary selection
         this.tempSelection = { questionId, response };
 
-        // Enable confirm button
         const confirmBtn = document.getElementById('confirmBtn');
         if (confirmBtn) confirmBtn.disabled = false;
     }
@@ -256,23 +645,22 @@ class ToMAssessment {
         }
 
         this.recordResponse(question.id, this.tempSelection.response, '2AFC');
-
-        // Apply branching logic
         this.applyBranchingLogic(question, this.tempSelection.response);
-
         this.moveToNextQuestion();
     }
 
     applyBranchingLogic(question, response) {
         const item = this.getCurrentItem();
 
-        // Store response for conditional text replacement
-        if (question.type === 'preference') {
-            this.sessionData[`${item.id}_childChoice`] = response;
-            this.sessionData[`${item.id}_opposite`] = this.getOppositeChoice(question.options, response);
+        if (question.storeAs) {
+            this.freeResponseStorage[question.storeAs] = response;
         }
 
-        // Check for conditional follow-ups
+        if (question.type === 'preference' && question.options) {
+            const opposite = this.getOppositeChoice(question.options, response);
+            this.freeResponseStorage[question.storeAs + '_opposite'] = opposite;
+        }
+
         if (item.conditionalFollowUp && question.correctAnswer) {
             const isCorrect = response === question.correctAnswer;
             const followUpText = item.conditionalFollowUp.find(f =>
@@ -292,23 +680,16 @@ class ToMAssessment {
     processQuestionText(text, item) {
         let processed = text;
 
-        // Replace {childChoice} with stored preference
-        const childChoice = this.sessionData[`${item.id}_childChoice`];
-        if (childChoice) {
-            processed = processed.replace('{childChoice}', childChoice);
-        }
-
-        // Replace {opposite} with opposite of preference
-        const opposite = this.sessionData[`${item.id}_opposite`];
-        if (opposite) {
-            processed = processed.replace('{opposite}', opposite);
+        // Replace stored responses
+        for (const [key, value] of Object.entries(this.freeResponseStorage)) {
+            const regex = new RegExp(`\\{${key}\\}`, 'g');
+            processed = processed.replace(regex, value);
         }
 
         return processed;
     }
 
     getCurrentQuestionIndex(item) {
-        // Count how many questions have been answered for this item
         const itemResponses = this.responses.filter(r => r.itemId === item.id);
         return itemResponses.length;
     }
@@ -338,15 +719,13 @@ class ToMAssessment {
         this.moveToNextQuestion();
     }
 
-    moveToNextQuestion() {
+    async moveToNextQuestion() {
         const item = this.getCurrentItem();
         const currentQuestionIndex = this.getCurrentQuestionIndex(item);
 
         if (currentQuestionIndex < item.questions.length) {
-            // More questions in this item
-            this.renderCurrentItem();
+            await this.renderCurrentItem();
         } else {
-            // Move to next item
             this.nextItem();
         }
     }
@@ -366,7 +745,6 @@ class ToMAssessment {
         if (this.currentItemIndex > 0) {
             this.currentItemIndex--;
 
-            // Remove responses for the previous item
             const prevItem = this.getCurrentItem();
             this.responses = this.responses.filter(r => r.itemId !== prevItem.id);
             this.sessionData.responses = this.sessionData.responses.filter(r => r.itemId !== prevItem.id);
@@ -391,7 +769,8 @@ class ToMAssessment {
         this.sessionData.endTime = new Date().toISOString();
         this.sessionData.totalDuration = new Date() - new Date(this.startTime);
 
-        // Show completion screen
+        audioManager.stop();
+
         document.querySelector('.assessment-screen').classList.remove('active');
         document.querySelector('.completion-screen').classList.add('active');
 
@@ -412,6 +791,12 @@ class ToMAssessment {
             </div>
             <div class="results-item">
                 <strong>Age:</strong> ${this.participantData.age} years
+            </div>
+            <div class="results-item">
+                <strong>Language:</strong> ${languageManager.getLanguageName()}
+            </div>
+            <div class="results-item">
+                <strong>Audio Enabled:</strong> ${this.sessionData.audioEnabled ? 'Yes' : 'No'}
             </div>
             <div class="results-item">
                 <strong>Booklet:</strong> ${this.currentBooklet}
@@ -442,13 +827,16 @@ class ToMAssessment {
     }
 
     downloadCSV() {
-        let csv = 'ParticipantID,Age,Grade,Booklet,Examiner,ItemID,ItemNumber,ItemType,QuestionID,QuestionType,Response,Timestamp,ResponseTime\n';
+        let csv = 'ParticipantID,Age,Grade,Language,AudioEnabled,Booklet,Examiner,ItemID,ItemNumber,ItemType,QuestionID,QuestionType,Response,HasAudioRecording,Timestamp,ResponseTime\n';
 
         this.responses.forEach(r => {
+            const hasAudio = this.audioRecordings[r.questionId] ? 'Yes' : 'No';
             const row = [
                 this.participantData.id,
                 this.participantData.age,
                 this.participantData.grade,
+                this.sessionData.language,
+                this.sessionData.audioEnabled,
                 this.currentBooklet,
                 this.participantData.examiner,
                 r.itemId,
@@ -457,6 +845,7 @@ class ToMAssessment {
                 r.questionId,
                 r.questionType,
                 `"${r.response.replace(/"/g, '""')}"`,
+                hasAudio,
                 r.timestamp,
                 r.responseTime
             ].join(',');
@@ -471,34 +860,112 @@ class ToMAssessment {
         link.click();
     }
 
-    // Qualtrics/Prolific integration methods
-    getQualtricsEmbeddedData() {
-        // Returns data in format suitable for Qualtrics embedded data
-        const embeddedData = {};
+    downloadAudioRecordings() {
+        if (Object.keys(this.audioRecordings).length === 0) {
+            alert('No audio recordings to download.');
+            return;
+        }
 
-        this.responses.forEach((r, index) => {
-            embeddedData[`${r.questionId}_response`] = r.response;
-            embeddedData[`${r.questionId}_time`] = r.responseTime;
+        // Create a zip-like structure using multiple downloads
+        const participantId = this.participantData.id;
+        const dateStr = new Date().toISOString().split('T')[0];
+
+        Object.entries(this.audioRecordings).forEach(([questionId, recording], index) => {
+            setTimeout(() => {
+                const url = URL.createObjectURL(recording.blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `ToM_${participantId}_${questionId}_${dateStr}.webm`;
+                link.click();
+                URL.revokeObjectURL(url);
+            }, index * 500); // Stagger downloads by 500ms
         });
 
-        embeddedData.tom_total_items = this.items.length;
-        embeddedData.tom_duration = this.sessionData.totalDuration;
-        embeddedData.tom_booklet = this.currentBooklet;
-
-        return embeddedData;
-    }
-
-    getProlificCompletionCode() {
-        // Generate a completion code for Prolific
-        const code = `TOM-${this.currentBooklet.toUpperCase()}-${Date.now().toString(36)}`;
-        return code;
+        alert(`Downloading ${Object.keys(this.audioRecordings).length} audio recording(s)...`);
     }
 }
 
 // Global assessment instance
-let assessment = new ToMAssessment();
+let assessment = new EnhancedToMAssessment();
 
 // UI Functions
+function updateLanguage() {
+    const languageCode = document.getElementById('languageSelect').value;
+    languageManager.setLanguage(languageCode);
+    audioManager.loadVoices();
+
+    // Update grade/year label and options
+    const gradeLabel = document.getElementById('gradeLabel');
+    const gradeSelect = document.getElementById('participantGrade');
+
+    gradeLabel.textContent = languageCode === 'en-GB' ? 'School Year:' : 'Grade Level:';
+
+    // Update options
+    const schoolLevels = languageManager.getSchoolLevels();
+    gradeSelect.innerHTML = schoolLevels.map(level =>
+        `<option value="${level.value}">${level.label}</option>`
+    ).join('');
+}
+
+function toggleAudio() {
+    const enabled = document.getElementById('audioEnabled').checked;
+    const audioInfo = document.getElementById('audioInfo');
+    const audioControls = document.getElementById('audioControls');
+
+    if (enabled) {
+        audioManager.enable();
+        audioInfo.style.display = 'block';
+    } else {
+        audioManager.disable();
+        audioInfo.style.display = 'none';
+    }
+}
+
+function togglePlayPause() {
+    if (audioManager.isSpeaking()) {
+        if (audioManager.isPaused()) {
+            audioManager.resume();
+            document.getElementById('playPauseText').textContent = 'Pause';
+            document.getElementById('audioStatus').textContent = 'Playing...';
+        } else {
+            audioManager.pause();
+            document.getElementById('playPauseText').textContent = 'Resume';
+            document.getElementById('audioStatus').textContent = 'Paused';
+        }
+    } else {
+        replayAudio();
+    }
+}
+
+function stopAudio() {
+    audioManager.stop();
+    document.getElementById('playPauseBtn').classList.remove('playing');
+    document.getElementById('playPauseText').textContent = 'Play Audio';
+    document.getElementById('audioStatus').textContent = 'Stopped';
+}
+
+async function replayAudio() {
+    const item = assessment.getCurrentItem();
+    if (item) {
+        const scriptElement = document.getElementById('scriptText');
+        const text = scriptElement.textContent || scriptElement.innerText;
+
+        document.getElementById('audioStatus').textContent = 'Playing...';
+        document.getElementById('playPauseBtn').classList.add('playing');
+        document.getElementById('playPauseText').textContent = 'Pause';
+
+        try {
+            await audioManager.speak(text);
+            document.getElementById('audioStatus').textContent = 'Complete';
+            document.getElementById('playPauseBtn').classList.remove('playing');
+            document.getElementById('playPauseText').textContent = 'Replay';
+        } catch (error) {
+            console.error('Audio replay error:', error);
+            document.getElementById('audioStatus').textContent = 'Error';
+        }
+    }
+}
+
 function startAssessment() {
     const participantId = document.getElementById('participantId').value.trim();
     const participantAge = document.getElementById('participantAge').value;
@@ -506,7 +973,6 @@ function startAssessment() {
     const bookletSelect = document.getElementById('bookletSelect').value;
     const examinerName = document.getElementById('examinerName').value.trim();
 
-    // Validation
     if (!participantId) {
         alert('Please enter a Participant ID');
         return;
@@ -522,7 +988,6 @@ function startAssessment() {
         return;
     }
 
-    // Initialize assessment
     const participantData = {
         id: participantId,
         age: participantAge,
@@ -532,16 +997,18 @@ function startAssessment() {
 
     assessment.initialize(participantData, bookletSelect);
 
-    // Switch screens
     document.querySelector('.setup-screen').classList.remove('active');
     document.querySelector('.assessment-screen').classList.add('active');
 
-    // Render first item
+    // Show audio controls if enabled
+    if (audioManager.isEnabled()) {
+        document.getElementById('audioControls').classList.add('active');
+    }
+
     assessment.renderCurrentItem();
 }
 
 function nextItem() {
-    // Check if current question is answered before proceeding
     const item = assessment.getCurrentItem();
     const currentQuestionIndex = assessment.getCurrentQuestionIndex(item);
 
@@ -565,35 +1032,50 @@ function downloadCSV() {
     assessment.downloadCSV();
 }
 
+function downloadAudioFiles() {
+    assessment.downloadAudioRecordings();
+}
+
 function resetAssessment() {
     if (confirm('Are you sure you want to start a new assessment? Current data will be lost.')) {
-        assessment = new ToMAssessment();
+        audioManager.stop();
+        assessment = new EnhancedToMAssessment();
         document.querySelector('.completion-screen').classList.remove('active');
         document.querySelector('.setup-screen').classList.add('active');
 
-        // Reset form
         document.getElementById('participantId').value = '';
         document.getElementById('participantAge').value = '';
-        document.getElementById('participantGrade').value = '';
-        document.getElementById('bookletSelect').value = '';
         document.getElementById('examinerName').value = '';
+        document.getElementById('bookletSelect').value = '';
+        document.getElementById('audioEnabled').checked = false;
+        document.getElementById('audioInfo').style.display = 'none';
+        document.getElementById('audioControls').classList.remove('active');
     }
 }
 
-// URL Parameter Support (for Qualtrics/Prolific integration)
+// URL Parameter Support
 function getURLParameters() {
     const params = new URLSearchParams(window.location.search);
     return {
         participantId: params.get('pid') || params.get('PROLIFIC_PID') || '',
         studyId: params.get('study_id') || params.get('STUDY_ID') || '',
-        sessionId: params.get('session_id') || params.get('SESSION_ID') || ''
+        sessionId: params.get('session_id') || params.get('SESSION_ID') || '',
+        language: params.get('lang') || 'en-US'
     };
 }
 
-// Auto-fill from URL parameters on page load
+// Initialize on page load
 window.addEventListener('DOMContentLoaded', () => {
+    // Update language selector
+    updateLanguage();
+
+    // Auto-fill from URL parameters
     const urlParams = getURLParameters();
     if (urlParams.participantId) {
         document.getElementById('participantId').value = urlParams.participantId;
+    }
+    if (urlParams.language) {
+        document.getElementById('languageSelect').value = urlParams.language;
+        updateLanguage();
     }
 });
