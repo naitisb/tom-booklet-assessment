@@ -82,6 +82,9 @@ class AudioNarrationEngine {
      * Narrate text sentence by sentence with progressive reveal
      */
     async narrateText(text, containerElement, onComplete) {
+        // Ensure voices are loaded
+        await this.ensureVoicesLoaded();
+
         this.sentences = this.parseSentences(text);
         this.currentSentenceIndex = 0;
         this.isNarrating = true;
@@ -104,6 +107,30 @@ class AudioNarrationEngine {
         if (onComplete) {
             onComplete();
         }
+    }
+
+    /**
+     * Ensure voices are loaded before attempting to speak
+     */
+    async ensureVoicesLoaded() {
+        return new Promise((resolve) => {
+            const voices = this.speechSynthesis.getVoices();
+            if (voices.length > 0) {
+                this.loadVoices();
+                resolve();
+            } else {
+                // Wait for voices to load
+                this.speechSynthesis.onvoiceschanged = () => {
+                    this.loadVoices();
+                    resolve();
+                };
+                // Fallback timeout
+                setTimeout(() => {
+                    this.loadVoices();
+                    resolve();
+                }, 1000);
+            }
+        });
     }
 
     /**
@@ -150,11 +177,14 @@ class AudioNarrationEngine {
             utterance.onerror = (error) => {
                 console.error('Speech synthesis error:', error);
                 sentenceElement.classList.remove('active');
-                reject(error);
+                // Don't reject, just continue to next sentence
+                resolve();
             };
 
-            // Speak
-            this.speechSynthesis.speak(utterance);
+            // Small delay before speaking to ensure voice is ready
+            setTimeout(() => {
+                this.speechSynthesis.speak(utterance);
+            }, 100);
         });
     }
 
