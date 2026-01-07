@@ -459,11 +459,76 @@ class PrototypeAssessment {
                 // Store variable if this question has storeAs
                 const question = this.findQuestionById(this.recordingQuestionId);
                 if (question && question.storeAs) {
-                    this.storedVariables[question.storeAs] = this.currentTranscript;
-                    console.log(`Stored ${question.storeAs}:`, this.currentTranscript);
+                    // Parse the response to extract the actual value
+                    let value = this.currentTranscript;
+
+                    // If this is the grade question, extract grade from response
+                    if (question.id === 'Introduction_Grade') {
+                        value = this.parseGradeResponse(this.currentTranscript);
+                    }
+
+                    this.storedVariables[question.storeAs] = value;
+                    console.log(`Stored ${question.storeAs}:`, value);
                 }
             }
         }
+    }
+
+    parseGradeResponse(transcript) {
+        const text = transcript.toLowerCase();
+
+        // List of grade patterns to match
+        const gradePatterns = [
+            // Numeric grades
+            { regex: /\b(first|1st)\s+grade\b/, value: 'first' },
+            { regex: /\b(second|2nd)\s+grade\b/, value: 'second' },
+            { regex: /\b(third|3rd)\s+grade\b/, value: 'third' },
+            { regex: /\b(fourth|4th)\s+grade\b/, value: 'fourth' },
+            { regex: /\b(fifth|5th)\s+grade\b/, value: 'fifth' },
+            { regex: /\b(sixth|6th)\s+grade\b/, value: 'sixth' },
+            { regex: /\b(seventh|7th)\s+grade\b/, value: 'seventh' },
+            { regex: /\b(eighth|8th)\s+grade\b/, value: 'eighth' },
+
+            // Just numbers with optional "grade"
+            { regex: /\b(first|1st)\b/, value: 'first' },
+            { regex: /\b(second|2nd)\b/, value: 'second' },
+            { regex: /\b(third|3rd)\b/, value: 'third' },
+            { regex: /\b(fourth|4th)\b/, value: 'fourth' },
+            { regex: /\b(fifth|5th)\b/, value: 'fifth' },
+            { regex: /\b(sixth|6th)\b/, value: 'sixth' },
+            { regex: /\b(seventh|7th)\b/, value: 'seventh' },
+            { regex: /\b(eighth|8th)\b/, value: 'eighth' },
+
+            // Kindergarten
+            { regex: /\bkindergarten\b/, value: 'kindergarten' },
+            { regex: /\bkinder\b/, value: 'kindergarten' },
+
+            // Preschool
+            { regex: /\bpreschool\b/, value: 'preschool' },
+            { regex: /\bpre-k\b/, value: 'preschool' },
+
+            // Just digit grades
+            { regex: /\b1\b/, value: 'first' },
+            { regex: /\b2\b/, value: 'second' },
+            { regex: /\b3\b/, value: 'third' },
+            { regex: /\b4\b/, value: 'fourth' },
+            { regex: /\b5\b/, value: 'fifth' },
+            { regex: /\b6\b/, value: 'sixth' },
+            { regex: /\b7\b/, value: 'seventh' },
+            { regex: /\b8\b/, value: 'eighth' }
+        ];
+
+        // Try each pattern
+        for (const pattern of gradePatterns) {
+            if (pattern.regex.test(text)) {
+                console.log(`Matched grade pattern: "${text}" -> "${pattern.value}"`);
+                return pattern.value;
+            }
+        }
+
+        // If no pattern matched, return the original transcript
+        console.log(`No grade pattern matched, using original: "${transcript}"`);
+        return transcript;
     }
 
     findQuestionById(questionId) {
