@@ -4,6 +4,7 @@
 const LANGUAGE_VARIANTS = {
     'en-US': {
         name: 'American English',
+        region: 'United States',
         translations: {
             // School terms
             'grade': 'grade',
@@ -40,8 +41,9 @@ const LANGUAGE_VARIANTS = {
         ]
     },
 
-    'en-GB': {
-        name: 'British English',
+    'en-GB-ENG': {
+        name: 'British English (England)',
+        region: 'England',
         translations: {
             // School terms
             'grade': 'year',
@@ -74,7 +76,94 @@ const LANGUAGE_VARIANTS = {
             { value: 'year5', label: 'Year 5' },
             { value: 'year6', label: 'Year 6' },
             { value: 'year7', label: 'Year 7' },
-            { value: 'year8', label: 'Year 8' }
+            { value: 'year8', label: 'Year 8' },
+            { value: 'year9', label: 'Year 9' },
+            { value: 'year10', label: 'Year 10' },
+            { value: 'year11', label: 'Year 11' }
+        ]
+    },
+
+    'en-GB-SCT': {
+        name: 'British English (Scotland)',
+        region: 'Scotland',
+        translations: {
+            // School terms
+            'grade': 'year',
+            'kindergarten': 'primary 1',
+            'preschool': 'nursery',
+            'teacher': 'teacher',
+            'recess': 'break time',
+            'snacktime': 'snack time',
+
+            // Common words
+            'mom': 'mum',
+            'color': 'colour',
+            'favorite': 'favourite',
+            'realize': 'realise',
+            'recognize': 'recognise',
+
+            // Story-specific
+            'playground': 'playground',
+            'slide': 'slide',
+            'swings': 'swings',
+            'sandbox': 'sandpit'
+        },
+        schoolLevels: [
+            { value: 'nursery', label: 'Nursery' },
+            { value: 'p1', label: 'Primary 1' },
+            { value: 'p2', label: 'Primary 2' },
+            { value: 'p3', label: 'Primary 3' },
+            { value: 'p4', label: 'Primary 4' },
+            { value: 'p5', label: 'Primary 5' },
+            { value: 'p6', label: 'Primary 6' },
+            { value: 'p7', label: 'Primary 7' },
+            { value: 's1', label: 'Secondary 1' },
+            { value: 's2', label: 'Secondary 2' },
+            { value: 's3', label: 'Secondary 3' },
+            { value: 's4', label: 'Secondary 4' }
+        ]
+    },
+
+    // Alias for backward compatibility
+    'en-GB': {
+        name: 'British English (England)',
+        region: 'England',
+        translations: {
+            // School terms
+            'grade': 'year',
+            'kindergarten': 'reception',
+            'preschool': 'nursery',
+            'teacher': 'teacher',
+            'recess': 'break time',
+            'snacktime': 'snack time',
+
+            // Common words
+            'mom': 'mum',
+            'color': 'colour',
+            'favorite': 'favourite',
+            'realize': 'realise',
+            'recognize': 'recognise',
+
+            // Story-specific
+            'playground': 'playground',
+            'slide': 'slide',
+            'swings': 'swings',
+            'sandbox': 'sandpit'
+        },
+        schoolLevels: [
+            { value: 'nursery', label: 'Nursery' },
+            { value: 'reception', label: 'Reception' },
+            { value: 'year1', label: 'Year 1' },
+            { value: 'year2', label: 'Year 2' },
+            { value: 'year3', label: 'Year 3' },
+            { value: 'year4', label: 'Year 4' },
+            { value: 'year5', label: 'Year 5' },
+            { value: 'year6', label: 'Year 6' },
+            { value: 'year7', label: 'Year 7' },
+            { value: 'year8', label: 'Year 8' },
+            { value: 'year9', label: 'Year 9' },
+            { value: 'year10', label: 'Year 10' },
+            { value: 'year11', label: 'Year 11' }
         ]
     }
 };
@@ -92,6 +181,14 @@ class LanguageManager {
 
     getLanguage() {
         return this.currentLanguage;
+    }
+
+    // Get language code for speech synthesis (en-US or en-GB)
+    getSpeechLanguageCode() {
+        if (this.currentLanguage.startsWith('en-GB')) {
+            return 'en-GB';
+        }
+        return 'en-US';
     }
 
     getLanguageName() {
@@ -154,8 +251,8 @@ class AudioManager {
         // Try to find appropriate voice based on language
         const languageCode = languageManager.getLanguage();
 
-        if (languageCode === 'en-GB') {
-            // Prefer British English voices
+        if (languageCode.startsWith('en-GB')) {
+            // Prefer British English voices for England and Scotland
             this.preferredVoice = this.voices.find(voice =>
                 voice.lang.startsWith('en-GB') ||
                 voice.name.includes('British') ||
@@ -218,8 +315,8 @@ class AudioManager {
             utterance.voice = this.preferredVoice;
         }
 
-        // Set language
-        utterance.lang = languageManager.getLanguage();
+        // Set language (use speech code for TTS)
+        utterance.lang = languageManager.getSpeechLanguageCode();
 
         // Set speech parameters
         utterance.rate = options.rate || 0.9; // Slightly slower for children

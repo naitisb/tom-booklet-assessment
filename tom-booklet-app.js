@@ -133,8 +133,8 @@ class EnhancedToMAssessment {
             responses: []
         };
 
-        // Set voice recognition language
-        voiceRecognition.setLanguage(languageManager.getLanguage());
+        // Set voice recognition language (use speech code)
+        voiceRecognition.setLanguage(languageManager.getSpeechLanguageCode());
     }
 
     loadBookletItems(bookletType) {
@@ -898,7 +898,14 @@ function updateLanguage() {
     const gradeLabel = document.getElementById('gradeLabel');
     const gradeSelect = document.getElementById('participantGrade');
 
-    gradeLabel.textContent = languageCode === 'en-GB' ? 'School Year:' : 'Grade Level:';
+    // Update label based on region
+    if (languageCode === 'en-US') {
+        gradeLabel.textContent = 'Grade Level:';
+    } else if (languageCode === 'en-GB-SCT') {
+        gradeLabel.textContent = 'School Level:';
+    } else {
+        gradeLabel.textContent = 'School Year:';
+    }
 
     // Update options
     const schoolLevels = languageManager.getSchoolLevels();
