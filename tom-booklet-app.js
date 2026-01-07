@@ -203,13 +203,9 @@ class EnhancedToMAssessment {
     }
 
     renderMetadata(item) {
+        // Metadata hidden from UI - only stored in data export
         const metadata = document.getElementById('itemMetadata');
-        const scored = item.scored !== false ? "Yes" : "No (Filler)";
-        metadata.innerHTML = `
-            <strong>Item ${item.number}:</strong> ${item.type} |
-            <strong>ID:</strong> ${item.id} |
-            <strong>Scored:</strong> ${scored}
-        `;
+        metadata.innerHTML = '';
     }
 
     async renderScript(scriptText) {

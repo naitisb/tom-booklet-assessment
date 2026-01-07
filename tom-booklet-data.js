@@ -15,15 +15,20 @@ const BOOKLET_1_DATA = {
                 number: 1,
                 type: "Common Desires",
                 illustration: "ToM_Booklet_1_illustrations/ToM_Booklet_01.png",
-                script: "Here is Sam. Sam is choosing between two books. One book is about bicycles, and the other book is about fire trucks.\n\nWhat do you like better- bicycles, or fire trucks?",
+                script: "Here is Sam. Sam is choosing between two books. One book is about bicycles, and the other book is about fire trucks.",
                 questions: [
+                    {
+                        id: "ToMB1_Pref_01",
+                        type: "free_response",
+                        text: "What do you like better- bicycles, or fire trucks?",
+                        options: ["Bicycles", "Fire trucks"],
+                        storeAs: "childChoice"
+                    },
                     {
                         id: "ToMB1_2AFC_01",
                         type: "2AFC",
                         text: "You do? That's great! Sam also likes the book about {childChoice}! So which book will Sam choose- the one about bicycles or the one about fire trucks?",
-                        options: ["Bicycles", "Fire trucks"],
-                        requiresPriorResponse: true,
-                        dependency: "childChoice"
+                        options: ["Bicycles", "Fire trucks"]
                     }
                 ],
                 followUp: "OK, can you give Sam that one?"
