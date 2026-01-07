@@ -11,10 +11,25 @@ class PrototypeAssessment {
         this.mediaRecorder = null;
         this.audioChunks = [];
         this.isRecording = false;
+        this.storedVariables = {}; // Store {gradeChoice}, etc.
 
         // Introduction
         this.introduction = {
-            script: `This is a story about a classroom. What grade are you in? Well these kids are in {gradeChoice} grade, just like you, and their teacher, Mr. Cook, just told all the kids that it is snack time. So now all of the children are going to get their snacks, and we're going to help them. Are you ready?`
+            script1: `This is a story about a classroom.`,
+            gradeQuestion: {
+                id: 'Introduction_Grade',
+                type: 'free_response_audio',
+                text: 'What grade are you in?',
+                storeAs: 'gradeChoice',
+                requiresAudio: true
+            },
+            script2: `Well these kids are in {gradeChoice} grade, just like you, and their teacher, Mr. Cook, just told all the kids that it is snack time. So now all of the children are going to get their snacks, and we're going to help them.`,
+            readyQuestion: {
+                id: 'Introduction_Ready',
+                type: 'yes_confirmation',
+                text: 'Are you ready?',
+                requiresAudio: true
+            }
         };
 
         // Item 1.5 data with numbered variables
@@ -40,7 +55,10 @@ class PrototypeAssessment {
         };
 
         this.steps = [
-            { type: 'narration', content: this.introduction.script },
+            { type: 'narration', content: this.introduction.script1 },
+            { type: 'intro_question', question: this.introduction.gradeQuestion },
+            { type: 'narration', content: this.introduction.script2 },
+            { type: 'intro_question', question: this.introduction.readyQuestion },
             { type: 'narration', content: this.itemData.script },
             { type: 'question', questionIndex: 0 },
             { type: 'question', questionIndex: 1 }
@@ -67,6 +85,9 @@ class PrototypeAssessment {
             case 'question':
                 await this.handleQuestion(step.questionIndex);
                 break;
+            case 'intro_question':
+                await this.handleIntroQuestion(step.question);
+                break;
         }
     }
 
@@ -75,11 +96,152 @@ class PrototypeAssessment {
         scriptContainer.innerHTML = '';
         scriptContainer.classList.remove('hidden');
 
+        // Replace variables in text
+        const processedText = this.replaceVariables(text);
+
         // Start narration
-        await audioEngine.narrateText(text, scriptContainer, () => {
+        await audioEngine.narrateText(processedText, scriptContainer, () => {
             // Narration complete
             this.showContinueButton();
         });
+    }
+
+    replaceVariables(text) {
+        let result = text;
+        for (const [key, value] of Object.entries(this.storedVariables)) {
+            const regex = new RegExp(`\\{${key}\\}`, 'g');
+            result = result.replace(regex, value);
+        }
+        return result;
+    }
+
+    async handleIntroQuestion(question) {
+        const questionContainer = document.getElementById('questionContainer');
+        const questionText = document.getElementById('questionText');
+        const responseArea = document.getElementById('responseArea');
+
+        questionContainer.classList.remove('hidden');
+        questionText.textContent = question.text;
+        responseArea.innerHTML = '';
+
+        // Narrate the question
+        const scriptContainer = document.getElementById('scriptContainer');
+        await audioEngine.narrateText(question.text, scriptContainer, null);
+
+        // Render based on question type
+        switch (question.type) {
+            case 'free_response_audio':
+                this.renderFreeResponseAudio(question, responseArea);
+                break;
+            case 'yes_confirmation':
+                this.renderYesConfirmation(question, responseArea);
+                break;
+        }
+    }
+
+    renderFreeResponseAudio(question, container) {
+        const recordingDiv = document.createElement('div');
+        recordingDiv.className = 'audio-recording';
+        recordingDiv.innerHTML = `
+            <p style="margin-bottom: 10px; font-weight: 600;">
+                <span style="font-size: 1.2em;">🎤</span> Record the participant's response
+            </p>
+            <p style="margin-bottom: 15px; color: #666; font-size: 0.95em;">
+                Click "Start Recording" to capture their answer.
+            </p>
+        `;
+
+        const controlsDiv = document.createElement('div');
+        controlsDiv.className = 'recording-controls';
+
+        const recordBtn = document.createElement('button');
+        recordBtn.className = 'record-btn start';
+        recordBtn.id = 'recordBtn';
+        recordBtn.innerHTML = '🔴 Start Recording';
+        recordBtn.onclick = () => this.toggleRecording(question.id);
+
+        const statusSpan = document.createElement('span');
+        statusSpan.id = 'recordStatus';
+        statusSpan.textContent = 'Ready to record';
+
+        controlsDiv.appendChild(recordBtn);
+        controlsDiv.appendChild(statusSpan);
+        recordingDiv.appendChild(controlsDiv);
+
+        const transcriptBox = document.createElement('div');
+        transcriptBox.className = 'transcript-box';
+        transcriptBox.id = 'transcriptBox';
+        transcriptBox.textContent = 'Transcription will appear here...';
+        recordingDiv.appendChild(transcriptBox);
+
+        container.appendChild(recordingDiv);
+    }
+
+    renderYesConfirmation(question, container) {
+        const confirmDiv = document.createElement('div');
+        confirmDiv.style.cssText = 'text-align: center; padding: 20px;';
+        confirmDiv.innerHTML = `
+            <p style="margin-bottom: 15px; font-size: 1.1em; color: #666;">
+                Wait for the participant to say "Yes" or "Ready"
+            </p>
+        `;
+
+        const recordBtn = document.createElement('button');
+        recordBtn.className = 'record-btn start';
+        recordBtn.innerHTML = '🎤 Listen for Response';
+        recordBtn.style.cssText = 'margin: 10px;';
+        recordBtn.onclick = async () => {
+            recordBtn.disabled = true;
+            recordBtn.innerHTML = '👂 Listening...';
+            await this.listenForYes(question.id);
+        };
+
+        confirmDiv.appendChild(recordBtn);
+
+        const manualBtn = document.createElement('button');
+        manualBtn.className = 'continue-btn';
+        manualBtn.textContent = 'Child Said Yes (Manual Continue)';
+        manualBtn.onclick = () => {
+            this.recordResponse(question.id, 'Yes (manual)', 'confirmation');
+            this.nextStep();
+        };
+
+        confirmDiv.appendChild(manualBtn);
+        container.appendChild(confirmDiv);
+    }
+
+    async listenForYes(questionId) {
+        // Start transcription and wait for "yes" or "ready"
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = audioEngine.language;
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript.toLowerCase();
+                console.log('Heard:', transcript);
+
+                if (transcript.includes('yes') || transcript.includes('ready') ||
+                    transcript.includes('yeah') || transcript.includes('yep')) {
+                    this.recordResponse(questionId, transcript, 'confirmation');
+                    this.nextStep();
+                } else {
+                    alert(`Heard: "${transcript}"\n\nPlease ask the child to say "Yes" and try again.`);
+                    document.querySelector('.record-btn').disabled = false;
+                    document.querySelector('.record-btn').innerHTML = '🎤 Listen for Response';
+                }
+            };
+
+            recognition.onerror = () => {
+                alert('Could not hear response. Please use manual continue.');
+                document.querySelector('.record-btn').disabled = false;
+                document.querySelector('.record-btn').innerHTML = '🎤 Listen for Response';
+            };
+
+            recognition.start();
+        }
     }
 
     async handleQuestion(questionIndex) {
@@ -290,11 +452,30 @@ class PrototypeAssessment {
         if (this.recognition) {
             this.recognition.stop();
 
-            // Save final transcript
+            // Save final transcript and store variable if needed
             if (this.currentTranscript && this.recordingQuestionId) {
-                this.recordResponse(this.recordingQuestionId, this.currentTranscript, 'explanation');
+                this.recordResponse(this.recordingQuestionId, this.currentTranscript, 'free_response_audio');
+
+                // Store variable if this question has storeAs
+                const question = this.findQuestionById(this.recordingQuestionId);
+                if (question && question.storeAs) {
+                    this.storedVariables[question.storeAs] = this.currentTranscript;
+                    console.log(`Stored ${question.storeAs}:`, this.currentTranscript);
+                }
             }
         }
+    }
+
+    findQuestionById(questionId) {
+        // Check intro questions
+        if (this.introduction.gradeQuestion && this.introduction.gradeQuestion.id === questionId) {
+            return this.introduction.gradeQuestion;
+        }
+        if (this.introduction.readyQuestion && this.introduction.readyQuestion.id === questionId) {
+            return this.introduction.readyQuestion;
+        }
+        // Check item questions
+        return this.itemData.questions.find(q => q.id === questionId);
     }
 
     recordDragResponse(questionId, itemId, zoneId) {
