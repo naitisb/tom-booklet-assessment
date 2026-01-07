@@ -124,7 +124,6 @@ class EnhancedToMAssessment {
         this.sessionData = {
             participantId: participantData.id,
             age: participantData.age,
-            grade: participantData.grade,
             booklet: bookletType,
             language: languageManager.getLanguage(),
             audioEnabled: audioManager.isEnabled(),
@@ -222,8 +221,7 @@ class EnhancedToMAssessment {
         // Replace placeholders with stored free responses
         processedScript = this.replaceResponsePlaceholders(processedScript);
 
-        // Replace grade placeholder
-        processedScript = processedScript.replace('{grade}', this.participantData.grade || 'X');
+        // Grade placeholder removed (no longer collected)
 
         // If audio is enabled, prepare for highlighting
         if (audioManager.isEnabled()) {
@@ -827,14 +825,13 @@ class EnhancedToMAssessment {
     }
 
     downloadCSV() {
-        let csv = 'ParticipantID,Age,Grade,Language,AudioEnabled,Booklet,Examiner,ItemID,ItemNumber,ItemType,QuestionID,QuestionType,Response,HasAudioRecording,Timestamp,ResponseTime\n';
+        let csv = 'ParticipantID,Age,Language,AudioEnabled,Booklet,Examiner,ItemID,ItemNumber,ItemType,QuestionID,QuestionType,Response,HasAudioRecording,Timestamp,ResponseTime\n';
 
         this.responses.forEach(r => {
             const hasAudio = this.audioRecordings[r.questionId] ? 'Yes' : 'No';
             const row = [
                 this.participantData.id,
                 this.participantData.age,
-                this.participantData.grade,
                 this.sessionData.language,
                 this.sessionData.audioEnabled,
                 this.currentBooklet,
@@ -893,25 +890,6 @@ function updateLanguage() {
     const languageCode = document.getElementById('languageSelect').value;
     languageManager.setLanguage(languageCode);
     audioManager.loadVoices();
-
-    // Update grade/year label and options
-    const gradeLabel = document.getElementById('gradeLabel');
-    const gradeSelect = document.getElementById('participantGrade');
-
-    // Update label based on region
-    if (languageCode === 'en-US') {
-        gradeLabel.textContent = 'Grade Level:';
-    } else if (languageCode === 'en-GB-SCT') {
-        gradeLabel.textContent = 'School Level:';
-    } else {
-        gradeLabel.textContent = 'School Year:';
-    }
-
-    // Update options
-    const schoolLevels = languageManager.getSchoolLevels();
-    gradeSelect.innerHTML = schoolLevels.map(level =>
-        `<option value="${level.value}">${level.label}</option>`
-    ).join('');
 }
 
 function toggleAudio() {
@@ -976,7 +954,6 @@ async function replayAudio() {
 function startAssessment() {
     const participantId = document.getElementById('participantId').value.trim();
     const participantAge = document.getElementById('participantAge').value;
-    const participantGrade = document.getElementById('participantGrade').value;
     const bookletSelect = document.getElementById('bookletSelect').value;
     const examinerName = document.getElementById('examinerName').value.trim();
 
@@ -998,7 +975,6 @@ function startAssessment() {
     const participantData = {
         id: participantId,
         age: participantAge,
-        grade: participantGrade,
         examiner: examinerName
     };
 
